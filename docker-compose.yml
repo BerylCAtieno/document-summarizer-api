@@ -1,27 +1,31 @@
-version: '3.9'
-
+version: "3.9"
 services:
-  api:
-    build: .
-    container_name: docapi
-    env_file:
-      - .env
-    volumes:
-      - ./data:/app/data 
-    ports:
-      - "8080:8080"
-    depends_on:
-      - minio
-
   minio:
     image: minio/minio:latest
     container_name: minio
-    command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data
     ports:
-      - "9000:9000"   
-      - "9001:9001"  
+      - "9000:9000"
+      - "9001:9001" 
     volumes:
-      - ./minio-data:/data
+      - minio-data:/data
+
+  app:
+    build: .
+    container_name: doc-app
+    ports:
+      - "8080:8080"
+    environment:
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: documents
+      PORT: 8080
+    depends_on:
+      - minio
+
+volumes:
+  minio-data:
