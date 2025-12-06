@@ -28,7 +28,7 @@ func main() {
 	logger := utils.NewLogger(cfg.LogLevel)
 
 	// Initialize database
-	database, err := db.NewPostgresDB(cfg.DatabaseURL)
+	database, err := db.NewSQLiteDB(cfg.DatabaseURL)
 	if err != nil {
 		logger.Fatal("Failed to connect to database", "error", err)
 	}
