@@ -8,13 +8,13 @@ A Go-based REST API for document upload, text extraction, and AI-powered analysi
 - Automatic text extraction
 - AI-powered document analysis (summary, type detection, metadata extraction)
 - S3/Minio storage for raw files
-- PostgreSQL database for metadata and analysis results
+- Database storage for metadata and analysis results
 
 
 ## Prerequisites
 
 - Go 1.21+
-- PostgreSQL 13+
+- SQlite
 - Minio
 - OpenRouter API key
 
@@ -26,7 +26,7 @@ Create a `.env` file:
 
 ```bash
 PORT=8080
-DATABASE_URL=postgres://user:password@localhost:5432/docapi?sslmode=disable
+DATABASE_URL=sqliteurl
 LOG_LEVEL=info
 
 # S3/Minio
@@ -47,16 +47,7 @@ OPENROUTER_MODEL=openai/gpt-4o-mini
 go mod download
 ```
 
-### 3. Setup Database
-
-```bash
-# Create database
-createdb docapi
-
-# Migrations run automatically on startup
-```
-
-### 4. Setup Minio (Local Development)
+### 4. Setup Minio (For Local Development)
 
 ```bash
 # Using Docker
@@ -69,7 +60,7 @@ docker run -p 9000:9000 -p 9001:9001 \
 ### 5. Run the API
 
 ```bash
-go run cmd/api/main.go
+go run cmd/server/main.go
 ```
 
 ## API Endpoints
@@ -165,79 +156,3 @@ curl -X POST http://localhost:8080/api/v1/documents/{id}/analyze
 ```bash
 curl http://localhost:8080/api/v1/documents/{id}
 ```
-
-## Supported Document Types
-
-The LLM can detect:
-- Invoice
-- CV/Resume
-- Report
-- Letter
-- Contract
-- Memo
-- Email
-- And more...
-
-## Extracted Metadata
-
-Depending on document type, the API extracts:
-- Date
-- Sender/Recipient
-- Company name
-- Amount/Currency (for invoices)
-- And other relevant fields
-
-## Error Handling
-
-All errors return JSON with proper HTTP status codes:
-
-```json
-{
-  "error": "Error message description"
-}
-```
-
-Status codes:
-- 400: Bad Request (invalid input)
-- 404: Not Found
-- 500: Internal Server Error
-
-## Development
-
-### Run Tests
-
-```bash
-go test ./...
-```
-
-### Database Migrations
-
-Migrations are in `internal/db/migrations/`:
-- `001_create_documents_table.up.sql`
-- `001_create_documents_table.down.sql`
-
-### Add New Migration
-
-```bash
-migrate create -ext sql -dir internal/db/migrations -seq migration_name
-```
-
-## Production Considerations
-
-1. **Security**
-   - Add authentication/authorization
-   - Validate file types more strictly
-   - Rate limiting
-   - Input sanitization
-
-2. **Performance**
-   - Add caching (Redis)
-   - Queue analysis jobs (RabbitMQ/SQS)
-   - Database connection pooling
-   - CDN for file downloads
-
-3. **Monitoring**
-   - Add metrics (Prometheus)
-   - Distributed tracing
-   - Error tracking (Sentry)
-
