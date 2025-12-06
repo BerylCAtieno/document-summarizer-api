@@ -59,7 +59,7 @@ func NewOpenRouterAnalyzer(apiKey, model string, logger *utils.Logger) Analyzer 
 }
 
 func (a *openRouterAnalyzer) Analyze(ctx context.Context, text string) (*models.LLMAnalysisResult, error) {
-	// Truncate text if too long (keep first 4000 characters)
+	// Truncate text if too long
 	if len(text) > 4000 {
 		text = text[:4000] + "..."
 	}
@@ -105,7 +105,7 @@ Respond ONLY with a valid JSON object (no markdown, no code blocks) with the fol
 
 	req.Header.Set("Authorization", "Bearer "+a.apiKey)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("HTTP-Referer", "https://github.com/yourusername/document-api")
+	req.Header.Set("HTTP-Referer", "https://github.com/BerylCAtieno/document-summarizer-api")
 
 	resp, err := a.client.Do(req)
 	if err != nil {
@@ -138,10 +138,8 @@ Respond ONLY with a valid JSON object (no markdown, no code blocks) with the fol
 
 	content := openRouterResp.Choices[0].Message.Content
 
-	// Parse the LLM response as JSON
 	var result models.LLMAnalysisResult
 	if err := json.Unmarshal([]byte(content), &result); err != nil {
-		// If parsing fails, try to extract JSON from markdown code blocks
 		content = extractJSON(content)
 		if err := json.Unmarshal([]byte(content), &result); err != nil {
 			a.logger.Error("Failed to parse LLM response", "content", content)
@@ -152,9 +150,8 @@ Respond ONLY with a valid JSON object (no markdown, no code blocks) with the fol
 	return &result, nil
 }
 
-// extractJSON attempts to extract JSON from markdown code blocks
 func extractJSON(content string) string {
-	// Remove markdown code blocks if present
+	// remove markdown codeblocks
 	if len(content) > 7 && content[:3] == "```" {
 		start := 0
 		end := len(content)
