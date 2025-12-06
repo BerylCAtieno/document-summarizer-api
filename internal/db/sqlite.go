@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/sqlite3"
+	"github.com/golang-migrate/migrate/v4/database/sqlite"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 // ensureDir ensures the parent directory of the DB file exists
@@ -32,7 +32,7 @@ func NewSQLiteDB(dbFile string) (*sqlx.DB, error) {
 	}
 
 	// Connect
-	db, err := sqlx.Connect("sqlite3", absPath)
+	db, err := sqlx.Connect("sqlite", absPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -60,13 +60,13 @@ func RunMigrations(dbFile string) error {
 		return fmt.Errorf("failed to create database directory: %w", err)
 	}
 
-	db, err := sqlx.Connect("sqlite3", absDB)
+	db, err := sqlx.Connect("sqlite", absDB)
 	if err != nil {
 		return fmt.Errorf("failed to connect for migrations: %w", err)
 	}
 	defer db.Close()
 
-	driver, err := sqlite3.WithInstance(db.DB, &sqlite3.Config{})
+	driver, err := sqlite.WithInstance(db.DB, &sqlite.Config{})
 	if err != nil {
 		return fmt.Errorf("failed to create migration driver: %w", err)
 	}
@@ -79,7 +79,7 @@ func RunMigrations(dbFile string) error {
 
 	m, err := migrate.NewWithDatabaseInstance(
 		"file://"+migrationsPath,
-		"sqlite3",
+		"sqlite",
 		driver,
 	)
 	if err != nil {

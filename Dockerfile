@@ -1,5 +1,4 @@
-# Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
@@ -13,19 +12,24 @@ RUN go mod download
 # Copy the rest of the code
 COPY . .
 
-# Build the binary
-RUN go build -o /app/server ./cmd/server
+# Build the Go binary
+RUN go build -o server ./cmd/server
 
-# Run stage
 FROM alpine:latest
+
+# Required for sqlite (if needed)
+RUN apk add --no-cache ca-certificates
 
 WORKDIR /app
 
 # Copy binary from builder
 COPY --from=builder /app/server .
 
-# Copy any static files (if needed)
-COPY --from=builder /app/.env ./
+# Copy migrations folder from builder
+COPY --from=builder /app/internal/db/migrations ./internal/db/migrations
+
+# Optional: copy any other static assets your app needs
+# COPY --from=builder /app/static ./static
 
 # Expose port
 EXPOSE 8080
