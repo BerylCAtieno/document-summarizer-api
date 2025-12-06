@@ -10,26 +10,6 @@ A Go-based REST API for document upload, text extraction, and AI-powered analysi
 - S3/Minio storage for raw files
 - PostgreSQL database for metadata and analysis results
 
-## Architecture
-
-```
-cmd/api/main.go          - Entry point
-internal/
-  ├── config/            - Configuration management
-  ├── db/                - Database connection and migrations
-  ├── documents/         - Core domain logic
-  │   ├── service.go     - Business logic
-  │   ├── repository.go  - Database operations
-  │   ├── model.go       - Data models
-  │   ├── extractor/     - PDF/DOCX text extraction
-  │   ├── analyzer/      - LLM integration
-  │   └── storage/       - S3/Minio client
-  ├── http/              - HTTP layer
-  │   ├── handlers/      - Request handlers
-  │   ├── middlewares/   - HTTP middlewares
-  │   └── router.go      - Route definitions
-  └── utils/             - Shared utilities
-```
 
 ## Prerequisites
 
