@@ -27,7 +27,6 @@ func ExtractPDF(data []byte) (string, error) {
 
 		text, err := page.GetPlainText(nil)
 		if err != nil {
-			// Log but continue with other pages
 			continue
 		}
 
