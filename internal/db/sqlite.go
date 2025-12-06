@@ -2,6 +2,8 @@ package db
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
@@ -10,14 +12,31 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// ensureDir ensures the parent directory of the DB file exists
+func ensureDir(dbFile string) error {
+	dir := filepath.Dir(dbFile)
+	return os.MkdirAll(dir, 0755)
+}
+
 // NewSQLiteDB creates a new SQLite connection
 func NewSQLiteDB(dbFile string) (*sqlx.DB, error) {
-	db, err := sqlx.Connect("sqlite3", dbFile)
+	// Convert to absolute path
+	absPath, err := filepath.Abs(dbFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get absolute database path: %w", err)
+	}
+
+	// Ensure folder exists
+	if err := ensureDir(absPath); err != nil {
+		return nil, fmt.Errorf("failed to create database directory: %w", err)
+	}
+
+	// Connect
+	db, err := sqlx.Connect("sqlite3", absPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// Test connection
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
@@ -30,7 +49,18 @@ func NewSQLiteDB(dbFile string) (*sqlx.DB, error) {
 
 // RunMigrations runs SQLite migrations
 func RunMigrations(dbFile string) error {
-	db, err := sqlx.Connect("sqlite3", dbFile)
+	// Absolute DB path
+	absDB, err := filepath.Abs(dbFile)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute DB path: %w", err)
+	}
+
+	// Ensure directory exists
+	if err := ensureDir(absDB); err != nil {
+		return fmt.Errorf("failed to create database directory: %w", err)
+	}
+
+	db, err := sqlx.Connect("sqlite3", absDB)
 	if err != nil {
 		return fmt.Errorf("failed to connect for migrations: %w", err)
 	}
@@ -41,8 +71,14 @@ func RunMigrations(dbFile string) error {
 		return fmt.Errorf("failed to create migration driver: %w", err)
 	}
 
+	// Absolute migration directory
+	migrationsPath, err := filepath.Abs("internal/db/migrations")
+	if err != nil {
+		return fmt.Errorf("failed to get migration path: %w", err)
+	}
+
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://internal/db/migrations",
+		"file://"+migrationsPath,
 		"sqlite3",
 		driver,
 	)
