@@ -48,10 +48,8 @@ func NewService(repo repository.Repository, cfg *config.Config, logger *utils.Lo
 }
 
 func (s *documentService) UploadDocument(ctx context.Context, req *models.UploadRequest) (*models.UploadResponse, error) {
-	// Generate unique ID
 	docID := utils.GenerateID()
 
-	// Determine file type and extract text
 	var extractedText string
 	var err error
 
@@ -69,14 +67,12 @@ func (s *documentService) UploadDocument(ctx context.Context, req *models.Upload
 		return nil, utils.NewInternalError("Failed to extract text from document")
 	}
 
-	// Upload to S3
 	s3Key := fmt.Sprintf("documents/%s/%s", docID, req.Filename)
 	if err := s.storage.Upload(ctx, s3Key, req.File, req.ContentType); err != nil {
 		s.logger.Error("Failed to upload to S3", "error", err)
 		return nil, utils.NewInternalError("Failed to store document")
 	}
 
-	// Save to database
 	now := time.Now()
 	doc := &models.Document{
 		ID:            docID,
@@ -91,7 +87,6 @@ func (s *documentService) UploadDocument(ctx context.Context, req *models.Upload
 
 	if err := s.repo.Create(ctx, doc); err != nil {
 		s.logger.Error("Failed to save document to database", "error", err)
-		// Attempt to cleanup S3
 		_ = s.storage.Delete(ctx, s3Key)
 		return nil, utils.NewInternalError("Failed to save document metadata")
 	}
@@ -109,7 +104,6 @@ func (s *documentService) UploadDocument(ctx context.Context, req *models.Upload
 }
 
 func (s *documentService) AnalyzeDocument(ctx context.Context, id string) (*models.AnalysisResponse, error) {
-	// Get document from database
 	doc, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		s.logger.Error("Failed to get document", "error", err)
@@ -119,7 +113,6 @@ func (s *documentService) AnalyzeDocument(ctx context.Context, id string) (*mode
 		return nil, utils.NewNotFoundError("Document not found")
 	}
 
-	// Check if already analyzed
 	if doc.AnalyzedAt != nil {
 		return &models.AnalysisResponse{
 			ID:           doc.ID,
@@ -130,14 +123,12 @@ func (s *documentService) AnalyzeDocument(ctx context.Context, id string) (*mode
 		}, nil
 	}
 
-	// Analyze with LLM
 	result, err := s.analyzer.Analyze(ctx, doc.ExtractedText)
 	if err != nil {
 		s.logger.Error("Failed to analyze document", "error", err)
 		return nil, utils.NewInternalError("Failed to analyze document with LLM")
 	}
 
-	// Update database with analysis results
 	if err := s.repo.UpdateAnalysis(ctx, id, result.Summary, result.DocumentType, result.Metadata); err != nil {
 		s.logger.Error("Failed to update analysis", "error", err)
 		return nil, utils.NewInternalError("Failed to save analysis results")
