@@ -1,15 +1,15 @@
 CREATE TABLE IF NOT EXISTS documents (
-    id VARCHAR(255) PRIMARY KEY,
-    filename VARCHAR(500) NOT NULL,
-    file_size BIGINT NOT NULL,
-    content_type VARCHAR(100) NOT NULL,
-    s3_key VARCHAR(1000) NOT NULL,
+    id TEXT PRIMARY KEY,
+    filename TEXT NOT NULL,
+    file_size INTEGER NOT NULL,
+    content_type TEXT NOT NULL,
+    s3_key TEXT NOT NULL,
     extracted_text TEXT,
     summary TEXT,
-    document_type VARCHAR(100),
-    metadata JSONB,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    document_type TEXT,
+    metadata TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     analyzed_at TIMESTAMP
 );
 
