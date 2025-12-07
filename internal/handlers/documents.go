@@ -13,6 +13,10 @@ import (
 	"github.com/gorilla/mux"
 )
 
+const (
+	MaxFileSize = 5 << 20 // 5MB
+)
+
 type DocumentHandler struct {
 	service services.DocumentService
 	logger  *utils.Logger
@@ -26,9 +30,24 @@ func NewDocumentHandler(service services.DocumentService, logger *utils.Logger) 
 }
 
 func (h *DocumentHandler) UploadDocument(w http.ResponseWriter, r *http.Request) {
-	// Parse multipart form (max 5MB)
-	if err := r.ParseMultipartForm(5 << 20); err != nil {
-		h.respondError(w, utils.NewBadRequestError("File too large or invalid form data"))
+	// Check Content-Length header first to reject oversized requests early
+	if r.ContentLength > MaxFileSize {
+		h.respondError(w, utils.NewBadRequestError("File size exceeds 5MB limit"))
+		return
+	}
+
+	// Limit the request body size to prevent memory exhaustion
+	r.Body = http.MaxBytesReader(w, r.Body, MaxFileSize)
+
+	// Parse multipart form with size limit
+	if err := r.ParseMultipartForm(MaxFileSize); err != nil {
+		// Check if error is due to size limit
+		if strings.Contains(err.Error(), "request body too large") ||
+			strings.Contains(err.Error(), "multipart: NextPart: http: request body too large") {
+			h.respondError(w, utils.NewBadRequestError("File size exceeds 5MB limit"))
+			return
+		}
+		h.respondError(w, utils.NewBadRequestError("Invalid form data"))
 		return
 	}
 
@@ -53,15 +72,15 @@ func (h *DocumentHandler) UploadDocument(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Read file data
-	data, err := io.ReadAll(file)
+	// Read file data with size limit
+	data, err := io.ReadAll(io.LimitReader(file, MaxFileSize+1))
 	if err != nil {
 		h.respondError(w, utils.NewInternalError("Failed to read file"))
 		return
 	}
 
-	// Validate file size (5MB)
-	if len(data) > 5*1024*1024 {
+	// Check if file exceeded size limit
+	if len(data) > MaxFileSize {
 		h.respondError(w, utils.NewBadRequestError("File size exceeds 5MB limit"))
 		return
 	}
@@ -136,6 +155,8 @@ func determineContentType(filename, headerContentType string) string {
 		return "application/pdf"
 	case ".docx":
 		return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+	case ".txt":
+		return "text/plain"
 	case ".doc":
 		// Note: .doc is not supported, but we can give a better error message
 		return "application/msword"
@@ -157,6 +178,11 @@ func isValidContentType(contentType string) bool {
 		"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
 		// Some browsers might send these variants for DOCX
 		"application/vnd.openxmlformats-officedocument.wordprocessingml": true,
+		// Plain text files
+		"text/plain":        true,
+		"text/txt":          true,
+		"application/txt":   true,
+		"application/x-txt": true,
 	}
 
 	return validTypes[contentType]

@@ -60,9 +60,11 @@ func (s *documentService) UploadDocument(ctx context.Context, req *models.Upload
 		extractedText, err = extractor.ExtractPDF(req.File)
 	case isDOCXContentType(req.ContentType):
 		extractedText, err = extractor.ExtractDOCX(req.File)
+	case isTXTContentType(req.ContentType):
+		extractedText, err = extractor.ExtractTXT(req.File)
 	default:
 		s.logger.Warn("Unsupported content type", "content_type", req.ContentType, "filename", req.Filename)
-		return nil, utils.NewBadRequestError(fmt.Sprintf("Unsupported file type '%s'. Only PDF and DOCX are allowed", req.ContentType))
+		return nil, utils.NewBadRequestError(fmt.Sprintf("Unsupported file type '%s'. Only PDF and DOCX files are allowed", req.ContentType))
 	}
 
 	if err != nil {
@@ -200,10 +202,32 @@ func isDOCXContentType(contentType string) bool {
 	return false
 }
 
+// isTXTContentType checks if the content type is a TXT file
+// Handles various plain text MIME type variations
+func isTXTContentType(contentType string) bool {
+	txtTypes := []string{
+		"text/plain",
+		"text/txt",
+		"application/txt",
+		"application/x-txt",
+	}
+
+	for _, txtType := range txtTypes {
+		if contentType == txtType {
+			return true
+		}
+	}
+
+	return false
+}
+
 // normalizeContentType normalizes content type to standard MIME types
 func normalizeContentType(contentType string) string {
 	if isDOCXContentType(contentType) {
 		return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+	}
+	if isTXTContentType(contentType) {
+		return "text/plain"
 	}
 	return contentType
 }

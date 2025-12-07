@@ -15,15 +15,83 @@ type WordDocument struct {
 }
 
 type Body struct {
-	Paragraphs []Paragraph `xml:"p"`
+	Content []BodyElement
+}
+
+type BodyElement struct {
+	Paragraph *Paragraph `xml:"p"`
+	Table     *Table     `xml:"tbl"`
 }
 
 type Paragraph struct {
 	Runs []Run `xml:"r"`
 }
 
+type Table struct {
+	Rows []TableRow `xml:"tr"`
+}
+
+type TableRow struct {
+	Cells []TableCell `xml:"tc"`
+}
+
+type TableCell struct {
+	Paragraphs []Paragraph `xml:"p"`
+}
+
 type Run struct {
-	Text string `xml:"t"`
+	Text     string   `xml:"t"`
+	TabChar  *TabChar `xml:"tab"`
+	BreakTag *Break   `xml:"br"`
+}
+
+type TabChar struct{}
+
+type Break struct{}
+
+// UnmarshalXML implements custom unmarshaling for Body to capture mixed content
+func (b *Body) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	for {
+		token, err := d.Token()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+
+		switch elem := token.(type) {
+		case xml.StartElement:
+			var be BodyElement
+			switch elem.Name.Local {
+			case "p":
+				var p Paragraph
+				if err := d.DecodeElement(&p, &elem); err != nil {
+					return err
+				}
+				be.Paragraph = &p
+				b.Content = append(b.Content, be)
+			case "tbl":
+				var t Table
+				if err := d.DecodeElement(&t, &elem); err != nil {
+					return err
+				}
+				be.Table = &t
+				b.Content = append(b.Content, be)
+			case "sectPr":
+				// Skip section properties
+				d.Skip()
+			default:
+				// Skip unknown elements
+				d.Skip()
+			}
+		case xml.EndElement:
+			if elem.Name.Local == "body" {
+				return nil
+			}
+		}
+	}
+	return nil
 }
 
 func ExtractDOCX(data []byte) (string, error) {
@@ -67,11 +135,15 @@ func ExtractDOCX(data []byte) (string, error) {
 
 	// Extract text
 	var textBuilder strings.Builder
-	for _, para := range doc.Body.Paragraphs {
-		for _, run := range para.Runs {
-			textBuilder.WriteString(run.Text)
+
+	for _, element := range doc.Body.Content {
+		if element.Paragraph != nil {
+			extractParagraph(element.Paragraph, &textBuilder)
+			textBuilder.WriteString("\n")
+		} else if element.Table != nil {
+			extractTable(element.Table, &textBuilder)
+			textBuilder.WriteString("\n")
 		}
-		textBuilder.WriteString("\n")
 	}
 
 	extractedText := strings.TrimSpace(textBuilder.String())
@@ -81,4 +153,38 @@ func ExtractDOCX(data []byte) (string, error) {
 	}
 
 	return extractedText, nil
+}
+
+func extractParagraph(para *Paragraph, builder *strings.Builder) {
+	for _, run := range para.Runs {
+		if run.Text != "" {
+			builder.WriteString(run.Text)
+		}
+		if run.TabChar != nil {
+			builder.WriteString("\t")
+		}
+		if run.BreakTag != nil {
+			builder.WriteString("\n")
+		}
+	}
+}
+
+func extractTable(table *Table, builder *strings.Builder) {
+	for _, row := range table.Rows {
+		var cellTexts []string
+		for _, cell := range row.Cells {
+			var cellBuilder strings.Builder
+			for _, para := range cell.Paragraphs {
+				extractParagraph(&para, &cellBuilder)
+			}
+			cellText := strings.TrimSpace(cellBuilder.String())
+			if cellText != "" {
+				cellTexts = append(cellTexts, cellText)
+			}
+		}
+		if len(cellTexts) > 0 {
+			builder.WriteString(strings.Join(cellTexts, " | "))
+			builder.WriteString("\n")
+		}
+	}
 }
