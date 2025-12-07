@@ -2,7 +2,6 @@
 
 A Go-based REST API for document upload, text extraction, and AI-powered analysis using OpenRouter LLM.
 
-Deployment Base URL: https://document-summarizer-api.fly.dev
 
 ## Features
 
